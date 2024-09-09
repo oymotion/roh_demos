@@ -107,8 +107,16 @@ class Application:
 
             # print(emg_min)
 
+        range_valid = True
+
         for i in range(NUM_FINGERS):
             print("MIN/MAX of finger {0}: {1}-{2}".format(i, emg_min[i], emg_max[i]))
+            if (emg_min[i] == emg_max[i]):
+                range_valid = False
+
+        if not range_valid:
+            print("Invalid range(s), exit.")
+            exit(-1)
 
         while not self.terminated:
             if keyboard.is_pressed('1'):
