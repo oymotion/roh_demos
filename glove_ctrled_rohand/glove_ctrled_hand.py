@@ -15,7 +15,7 @@ from lib_gforce import gforce
 from roh_registers_v1 import *
 
 # ROHand configuration
-COM_PORT = "COM8"
+COM_PORT = "COM7"
 NODE_ID = 2
 
 # Device filters
@@ -24,6 +24,7 @@ DEV_MIN_RSSI = -64
 
 NUM_FINGERS = 5
 
+MIN_POS = [0, 0, 0, 0, 0]
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -56,6 +57,8 @@ class Application:
         prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
         last_time = 0
+        thumb_rotate = [0, 32767, 65535]
+        rotate_index = 0
 
         client = ModbusSerialClient(COM_PORT, FramerType.RTU, 115200)
         client.connect()
@@ -112,6 +115,9 @@ class Application:
                 resp = client.write_registers(ROH_FINGER_POS_TARGET5, [0], NODE_ID)
                 print("client.write_registers() returned", resp)
             elif keyboard.is_pressed('2'):
+                resp = client.write_registers(ROH_FINGER_POS_TARGET5, [32767], NODE_ID)
+                print("client.write_registers() returned", resp)
+            elif keyboard.is_pressed('3'):
                 resp = client.write_registers(ROH_FINGER_POS_TARGET5, [65535], NODE_ID)
                 print("client.write_registers() returned", resp)
 
@@ -151,6 +157,14 @@ class Application:
             if (finger_data == prev_finger_data or time.time() - last_time < 0.05):
                 continue
 
+            if(prev_finger_data == MIN_POS and time.time() - last_time > 2.0):
+                resp = client.write_registers(ROH_FINGER_POS_TARGET5, thumb_rotate[rotate_index], NODE_ID)
+                print("client.write_registers() returned", resp)
+                rotate_index += 1
+                if (rotate_index == 3):
+                    thumb_rotate.reverse()
+                    rotate_index = 1
+            
             print(finger_data)
 
             # Control the ROHand
