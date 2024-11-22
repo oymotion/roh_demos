@@ -51,52 +51,31 @@ class Application:
         self.write_registers(client, ROH_FINGER_CURRENT_LIMIT0, [200, 200, 200, 200, 200, 200], NODE_ID)
         time.sleep(1.5)
 
+        print("Moving thumb root...")
         # Open all fingers
         self.write_registers(client, ROH_FINGER_POS_TARGET0, [0, 0, 0, 0, 0], NODE_ID)
         time.sleep(1.5)
 
-        # Rotate thumb root to side
-        self.write_registers(client, ROH_FINGER_POS_TARGET5, [0], NODE_ID)
+        # Rotate thumb root to opposite
+        self.write_registers(client, ROH_FINGER_POS_TARGET5, [65535], NODE_ID)
         time.sleep(1.5)
 
         loop_time = 0
 
         while not self.terminated:
             #
-            # Close thumb then spread
-
-            if not self.write_registers(client, ROH_FINGER_POS_TARGET0, [65535], NODE_ID):
-                break
-            time.sleep(1.5)
-
-            if not self.write_registers(client, ROH_FINGER_POS_TARGET0, [0], NODE_ID):
-                break
-            time.sleep(1.5)
-
-            #
-            # Rotate thumb root
-
-            if not self.write_registers(client, ROH_FINGER_POS_TARGET5, [65535], NODE_ID):
-                break
-            time.sleep(1.5)
-
-            if not self.write_registers(client, ROH_FINGER_POS_TARGET5, [0], NODE_ID):
-                break
-            time.sleep(1.5)
-
-            #
             # Close other fingers then spread
-
             if not self.write_registers(client, ROH_FINGER_POS_TARGET1, [65535, 65535, 65535, 65535], NODE_ID):
                 break
             time.sleep(1.5)
-
+            
             if not self.write_registers(client, ROH_FINGER_POS_TARGET1, [0, 0, 0, 0], NODE_ID):
                 break
             time.sleep(1.5)
 
             loop_time += 1
             print("Loop executed:", loop_time)
+            
 
 
 if __name__ == "__main__":
