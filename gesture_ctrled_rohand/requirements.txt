@@ -1,4 +1,4 @@
 cvzone==1.6.1
-mediapipe==0.10.14
+mediapipe==0.10.13
 pymodbus==3.7.2
 pyserial==3.5
