@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 ## 运行
 
-打开`glove_ctrled_hand.py`并修改端口和设备地址，例如：
+打开`glove_ctrled_hand.py`或`12bits_glove_ctrled_hand.py`并修改端口和设备地址，例如：
 
 ```python
 COM_PORT = "COM8"
@@ -31,4 +31,10 @@ NODE_ID = 2
 python glove_ctrled_hand.py
 ```
 
-按'1'或者'2'切换大拇指位置，按'ctrl-c'退出。
+或者
+
+```python
+python 12bits_glove_ctrled_hand.py
+```
+
+按照指示进行初始标定后，即可通过手套控制灵巧手。
