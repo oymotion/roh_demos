@@ -77,7 +77,7 @@ class Application:
 
         # Set the EMG raw data configuration, default configuration is 8 bits, 16 batch_len
         if SAMPLE_RESOLUTION == 12:
-            cfg = EmgRawDataConfig(fs=100, channel_mask=0xff, batch_len = 8, resolution = SampleResolution.BITS_12)
+            cfg = EmgRawDataConfig(fs=100, channel_mask=0xff, batch_len = 48, resolution = SampleResolution.BITS_12)
             await gforce_device.set_emg_raw_data_config(cfg)
 
         baterry_level = await gforce_device.get_battery_level()
@@ -112,7 +112,7 @@ class Application:
             # print(v)
 
             for i in range(len(v)):
-                for j in range(NUM_FINGERS):
+                for j in range(NUM_FINGERS - 1):
                     emg_min[j] = round((emg_max[j] + v[i][INDEX_CHANNELS[j]]) / 2)
         
             # print(emg_min)
@@ -142,7 +142,7 @@ class Application:
 
             # Control the ROHand
             resp = client.write_registers(ROH_FINGER_POS_TARGET0, finger_data, NODE_ID)
-            print("client.write_registers() returned", resp)
+            # print("client.write_registers() returned", resp)
 
             # prev_finger_data = finger_data.copy()
             for i in range(len(finger_data)):
