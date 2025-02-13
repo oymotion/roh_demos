@@ -98,7 +98,7 @@ class Application:
 
         # print(emg_max)
 
-        print("Please rotate thumb root")
+        print("Please rotate your thumb to maximum angle")
 
         for _ in range(256):
             v = await q.get()
@@ -121,7 +121,7 @@ class Application:
 
         for i in range(NUM_FINGERS):
             print("MIN/MAX of finger {0}: {1}-{2}".format(i, emg_min[i], emg_max[i]))
-            if (emg_min[i] == emg_max[i]):
+            if (emg_min[i] >= emg_max[i]):
                 range_valid = False
 
         if not range_valid:
@@ -145,8 +145,8 @@ class Application:
             # print("client.write_registers() returned", resp)
 
             # prev_finger_data = finger_data.copy()
-            for i in range(len(finger_data)):
-                prev_finger_data[i] = finger_data[i]
+            # for i in range(len(finger_data)):
+            #     prev_finger_data[i] = finger_data[i]
 
         await gforce_device.stop_streaming()
         await gforce_device.disconnect()
