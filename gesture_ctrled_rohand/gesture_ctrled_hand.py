@@ -1,7 +1,6 @@
 import os
 import cv2
 from roh_registers_v1 import *
-
 from cvzone.HandTrackingModule import HandDetector
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
@@ -10,10 +9,21 @@ from pymodbus.client import ModbusSerialClient
 COM_PORT = "COM8"
 NODE_ID = 2
 
-
 file_path = os.path.abspath(os.path.dirname(__file__))
+
+video = cv2.VideoCapture(0) 
+
+# 获取摄像头的分辨率
+width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))  # 摄像头帧宽度
+height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 摄像头帧高度
+
 detector = HandDetector(maxHands=1, detectionCon=0.8)
-video = cv2.VideoCapture(0)
+
+# 创建可调整大小的窗口
+cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
+
+# 设置窗口大小为摄像头分辨率
+cv2.resizeWindow("Video", width, height)
 
 client = ModbusSerialClient(COM_PORT, FramerType.RTU, 115200)
 client.connect()
