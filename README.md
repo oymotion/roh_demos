@@ -1,3 +1,3 @@
-# ROHand 演示项目
+# ROHand Demonstration Project Collection
 
-ROHand演示项目集合
+This is a collection of demonstration projects for the ROHand robotic hand.

@@ -1,40 +1,34 @@
-# 手套控制 ROHand
+# Glove-Controlled ROHand
 
-## 准备
+## Preparation
 
-安装python和pip
-进入命令环境，如windows下的command或者linux下的BASH
-进入演示项目目录，例如：
+* Install Python and pip
+* Open a command-line environment (e.g., Command Prompt on Windows or BASH on Linux)
+* Navigate to the demonstration project directory, for example:
 
 ```SHELL
 cd glove_ctrled_rohand
 ```
 
-安装依赖的python库：
+* Install the required Python libraries:
 
 ```SHELL
 pip install -r requirements.txt
 ```
 
-## 运行
+## Running the Program
 
-打开`glove_ctrled_hand.py`或`12bits_glove_ctrled_hand.py`并修改端口和设备地址，例如：
+* Open the file `glove_ctrled_hand.py` and modify the port and device address as needed, for example:
 
 ```python
 COM_PORT = "COM8"
 NODE_ID = 2
 ```
 
-运行：
+* Run the program:
 
 ```python
 python glove_ctrled_hand.py
 ```
 
-或者
-
-```python
-python 12bits_glove_ctrled_hand.py
-```
-
-按照指示进行初始标定后，即可通过手套控制灵巧手。
+* Follow the on-screen instructions to perform the initial calibration, and then you can control the ROHand using the glove.

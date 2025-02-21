@@ -1,34 +1,34 @@
-# 肌电手环控制 ROHand
+# Controlling ROHand with gForce Armband
 
-## 准备
+## Preparation
 
-安装python和pip
-进入命令环境，如windows下的command或者linux下的BASH
-进入演示项目目录，例如：
+* Install Python and pip
+* Open a command-line environment (e.g., Command Prompt on Windows or BASH on Linux)
+* Navigate to the demonstration project directory, for example:
 
 ```SHELL
 cd gForce_ctrled_rohand
 ```
 
-安装依赖的python库：
+* Install the required Python libraries:
 
 ```SHELL
 pip install -r requirements.txt
 ```
 
-## 运行
+## Running the Program
 
-打开`gForce_ctrled_hand.py`并修改端口和设备地址，例如：
+* Open the `gForce_ctrled_hand.py` file and modify the port and device address as needed, for example:
 
 ```python
 COM_PORT = "COM7"
 NODE_ID = 2
 ```
 
-运行：
+* Run the program:
 
 ```python
 python gForce_ctrled_hand.py
 ```
 
-按'ctrl-c'退出。
+* Press 'ctrl-c' to exit the program.
