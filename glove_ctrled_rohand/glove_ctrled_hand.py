@@ -4,7 +4,7 @@ import asyncio
 import os
 import signal
 import sys
-import time
+import serial.tools.list_ports
 
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
@@ -15,14 +15,13 @@ from lib_gforce.gforce import EmgRawDataConfig, SampleResolution
 from roh_registers_v1 import *
 
 # ROHand configuration
-COM_PORT = "COM8"
 NODE_ID = 2
 
 NUM_FINGERS = 6
 
 # Device filters
 DEV_NAME_PREFIX = "gForceBLE"
-DEV_MIN_RSSI = -64
+DEV_MIN_RSSI = -128
 
 # sample resolution:BITS_8 or BITS_12
 SAMPLE_RESOLUTION = 8
@@ -43,6 +42,7 @@ def interpolate(n, from_min, from_max, to_min, to_max):
     return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
 
 
+
 class Application:
 
     def __init__(self):
@@ -54,14 +54,26 @@ class Application:
         self.terminated = True
 
     async def main(self):
+        ports = []
+
+        for port in serial.tools.list_ports.comports():
+            if port.description.startswith("USB-SERIAL"):
+                print(f"port: {port.name}-{port.description}")
+                ports.append(port.name)
+
+        if len(ports) == 0:
+            print("No ROHand found, exit.")
+            exit(-1)
+
         gforce_device = gforce.GForce(DEV_NAME_PREFIX, DEV_MIN_RSSI)
         emg_data = [0 for _ in range(NUM_FINGERS)]
         emg_min = [0 for _ in range(NUM_FINGERS)]
         emg_max = [0 for _ in range(NUM_FINGERS)]
-        prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
+        prev_finger_data = [0 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
+        prev_dir = [0 for _ in range(NUM_FINGERS)]
 
-        client = ModbusSerialClient(COM_PORT, FramerType.RTU, 115200)
+        client = ModbusSerialClient(ports[0], FramerType.RTU, 115200)
         client.connect()
 
         # GForce.connect() may get exception, but we just ignore for gloves
@@ -114,9 +126,9 @@ class Application:
             for i in range(len(v)):
                 for j in range(NUM_FINGERS - 1):
                     emg_min[j] = round((emg_max[j] + v[i][INDEX_CHANNELS[j]]) / 2)
-        
+
             # print(emg_min)
-        
+
         range_valid = True
 
         for i in range(NUM_FINGERS):
@@ -140,13 +152,29 @@ class Application:
                     finger_data[j] = clamp(finger_data[j], 0, 65535)
             # print(finger_data)
 
-            # Control the ROHand
-            resp = client.write_registers(ROH_FINGER_POS_TARGET0, finger_data, NODE_ID)
-            # print("client.write_registers() returned", resp)
+            dir = [0 for _ in range(NUM_FINGERS)]
 
-            # prev_finger_data = finger_data.copy()
-            # for i in range(len(finger_data)):
-            #     prev_finger_data[i] = finger_data[i]
+            for i in range(NUM_FINGERS):
+                if finger_data[i] > prev_finger_data[i]:
+                    dir[i] = 1
+                elif finger_data[i] < prev_finger_data[i]:
+                    dir[i] = -1
+
+                if dir[i] != prev_dir[i]:
+                    if dir[i] == -1:
+                        pos = 0
+                    elif dir[i] == 0:
+                        pos = finger_data[i]
+                    else:
+                        pos = 65535
+
+                    # Control the ROHand
+                    resp = client.write_register(ROH_FINGER_POS_TARGET0 + i, pos, NODE_ID)
+                    print(f"client.write_register({ROH_FINGER_POS_TARGET0 + i}, {pos}, {NODE_ID}) returned", resp)
+
+                    prev_dir[i] = dir[i]
+
+                prev_finger_data[i] = finger_data[i]
 
         await gforce_device.stop_streaming()
         await gforce_device.disconnect()
