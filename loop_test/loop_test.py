@@ -8,15 +8,15 @@ import time
 
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
+from pymodbus.exceptions import ModbusException
+from serial.tools import list_ports
 
 from roh_registers_v1 import *
 
 # ROHand configuration
-COM_PORT = "COM7"
 NODE_ID = [2] # Support multiple nodes
-WITH_LODE = True # Choose with load or without load
+WITH_LODE = False # Choose with load or without load
 TIME_DELAY = 1.5
-
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -33,15 +33,53 @@ class Application:
         print("You pressed ctrl-c, exit")
         self.terminated = True
 
+    def find_comport(self, port_name):
+        """
+        Find available serial port automatically
+        :param port_name: Characterization of the port description, such as "CH340"
+        :return: Comport of device if successful, None otherwise
+        """
+        ports = list_ports.comports()
+        for port in ports:
+            if port_name in port.description:
+                return port.device
+        return None
+
     def write_registers(self, client, address, values):
+        """
+        Write data to Modbus device.
+        :param client: Modbus client instance
+        :param address: Register address
+        :param values: Data to be written
+        :return: True if successful, False otherwise
+        """
         for i in range(len(NODE_ID)):
-            resp = client.write_registers(address, values, NODE_ID[i])
-            if resp.isError():
-                print("client.write_registers() returned", resp)
+            try:
+                resp = client.write_registers(address, values, NODE_ID[i])
+                if resp.isError():
+                    print("client.write_registers() returned", resp)
+                    return False
+            except ModbusException as e:
+                print("ModbusException:{0}".format(e))
                 return False
-            else :
-                continue
         return True
+
+    def read_registers(self, client, address, count, node_id):
+        """
+        Read data from Modbus device.
+        :param client: Modbus client instance
+        :param address: Register address
+        :param count: Register count to be read
+        :return: List of registers if successful, None otherwise
+        """
+        try:
+            resp = client.read_holding_registers(address, count, node_id)
+            if resp.isError():
+                return None    
+            return resp.registers
+        except ModbusException as e:
+            print("ModbusException:{0}".format(e))
+            return None
         
     def loop_without_load(self, client):
             #
@@ -90,12 +128,10 @@ class Application:
         return True
 
     async def main(self):
-        client = ModbusSerialClient(COM_PORT, FramerType.RTU, 115200)
-        client.connect()
-
-        # Set current limit
-        self.write_registers(client, ROH_FINGER_CURRENT_LIMIT0, [200, 200, 200, 200, 200, 200])
-        time.sleep(TIME_DELAY)
+        client = ModbusSerialClient(self.find_comport("CH340"), FramerType.RTU, 115200)
+        if not client.connect():
+            print("Failed to connect Modbus device")
+            exit(-1)
 
         # Open all fingers
         self.write_registers(client, ROH_FINGER_POS_TARGET0, [0, 0, 0, 0, 0, 0])

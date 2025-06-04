@@ -21,7 +21,6 @@ pip install -r requirements.txt
 * Open the `loop_test.py` file and modify the port and device address as needed, for example:
 
 ```python
-COM_PORT = "COM8"
 NODE_ID = 2
 ```
 
