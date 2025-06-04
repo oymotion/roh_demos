@@ -18,10 +18,9 @@ pip install -r requirements.txt
 
 ## 运行
 
-打开`gesture_ctrled_hand.py`并修改端口和设备地址，例如：
+打开`gesture_ctrled_hand.py`并修改设备地址，例如：
 
 ```python
-COM_PORT = "COM8"
 NODE_ID = 2
 ```
 

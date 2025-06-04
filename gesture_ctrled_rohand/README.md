@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 ## Running the Program
 
-* Open the `gesture_ctrled_hand.py` file and modify the port and device address as needed, for example:
+* Open the `gesture_ctrled_hand.py` file and modify the device address as needed, for example:
 
 ```python
 NODE_ID = 2

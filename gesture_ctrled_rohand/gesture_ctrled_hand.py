@@ -1,5 +1,6 @@
 import os
 import cv2
+import keyboard
 
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
@@ -17,18 +18,17 @@ file_path = os.path.abspath(os.path.dirname(__file__))
 
 video = cv2.VideoCapture(0)
 
-# # 获取摄像头的分辨率
-# width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))  # 摄像头帧宽度
-# height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 摄像头帧高度
+# 获取摄像头的分辨率
+width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))  # 摄像头帧宽度
+height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 摄像头帧高度
 
-# # 创建可调整大小的窗口
-# cv2.namedWindow("window", cv2.WINDOW_NORMAL)
+detector = HandDetector(maxHands=1, detectionCon=0.8)
 
-# # 设置窗口大小为摄像头分辨率
-# cv2.resizeWindow("window", width, height)
+# 创建可调整大小的窗口
+cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
 
-cv2.namedWindow("window", cv2.WND_PROP_FULLSCREEN)
-cv2.setWindowProperty("window", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+# 设置窗口大小为摄像头分辨率
+cv2.resizeWindow("Video", width, height)
 
 def find_comport(port_name):
     """
@@ -92,12 +92,8 @@ def main():
         gesture_pic = cv2.imread(file_path + "/gestures/unknown.png")
         gesture = [45000, 65535, 65535, 65535, 65535, 65535]
 
-    if len(hands) > 0:
-        for idx in range(len(hands)):
-            # print(hands[idx])
-            for idx2 in range(len(hands[idx])): 
-                hand = hands[idx][idx2]
-                # print(f"hands[{idx}]: {hand}, type: {type(hand)}")
+        if hand:
+            lmlist = hand[0]
 
             if lmlist and lmlist[0]:
                 try:
@@ -128,15 +124,16 @@ def main():
         if gesture_pic.any():
             gesture_pic = cv2.resize(gesture_pic, (161, 203))
             img[0:203, 0:161] = gesture_pic
-        cv2.putText(img, "Try with gestures", (16, 272), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5)
-        cv2.imshow("window", img)
+            cv2.putText(img, "Try with gestures", (16, 272), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5)
+            cv2.imshow("Video", img)
 
-    if prev_gesture != gesture:
+
+        if (prev_gesture != gesture):
             if not write_registers(client, ROH_FINGER_POS_TARGET0, gesture):
                 print("写入目标位置失败\nFailed to write target position")
             prev_gesture = gesture
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     video.release()

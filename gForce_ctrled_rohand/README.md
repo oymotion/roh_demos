@@ -18,10 +18,9 @@ pip install -r requirements.txt
 
 ## Running the Program
 
-* Open the `gForce_ctrled_hand.py` file and modify the port and device address as needed, for example:
+* Open the `gForce_ctrled_hand.py` file and modify the device address as needed, for example:
 
 ```python
-COM_PORT = "COM7"
 NODE_ID = 2
 ```
 
