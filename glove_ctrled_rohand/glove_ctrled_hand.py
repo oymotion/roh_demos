@@ -20,7 +20,7 @@ NUM_FINGERS = 6
 
 # Device filters
 DEV_NAME_PREFIX = "gForceBLE"
-DEV_MIN_RSSI = -128
+DEV_MIN_RSSI = -64
 
 # sample resolution:BITS_8 or BITS_12
 SAMPLE_RESOLUTION = 8
@@ -90,7 +90,7 @@ class Application:
         try:
             resp = client.read_holding_registers(address, count, NODE_ID)
             if resp.isError():
-                return None
+                return None    
             return resp.registers
         except ModbusException as e:
             print("ModbusException:{0}".format(e))
@@ -104,15 +104,11 @@ class Application:
         emg_max = [0 for _ in range(NUM_FINGERS)]
         prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
-        prev_dir = [0 for _ in range(NUM_FINGERS)]
 
-        TOLERANCE = 10 # 判断目标位置变化的阈值，位置控制模式时为整数，角度控制模式时为浮点数
-
-
-        # 连接到Modbus设备
+        # ���ӵ�Modbus�豸
         client = ModbusSerialClient(self.find_comport("CH340"), FramerType.RTU, 115200)
         if not client.connect():
-            print("连接Modbus设备失败\nFailed to connect to Modbus device")
+            print("����Modbus�豸ʧ��\nFailed to connect to Modbus device")
             exit(-1)
 
         # GForce.connect() may get exception, but we just ignore for gloves
@@ -132,12 +128,12 @@ class Application:
             await gforce_device.set_emg_raw_data_config(cfg)
 
         baterry_level = await gforce_device.get_battery_level()
-        print("电池电量: {0}%\nDevice baterry level: {0}%".format(baterry_level))
+        print("��ص���: {0}%\nDevice baterry level: {0}%".format(baterry_level))
 
         await gforce_device.set_subscription(gforce.DataSubscription.EMG_RAW)
         q = await gforce_device.start_streaming()
 
-        print("校正模式，请执行握拳和张开动作若干次\nCalibrating mode, please perform a fist and open action several times")
+        print("У��ģʽ����ִ����ȭ���ſ��������ɴ�\nCalibrating mode, please perform a fist and open action several times")
 
         for _ in range(256):
             v = await q.get()
@@ -157,7 +153,7 @@ class Application:
                 range_valid = False
 
         if not range_valid:
-            print("无效的校正范围,退出\nInvalid range(s), exit.")
+            print("��Ч��У����Χ,�˳�\nInvalid range(s), exit.")
             self.terminated = True
 
         while not self.terminated:
@@ -169,44 +165,15 @@ class Application:
                     emg_data[j] = round((emg_data[j] * 14 + v[i][INDEX_CHANNELS[j]]) / 15)
                     finger_data[j] = round(interpolate(emg_data[j], emg_min[j], emg_max[j], 65535, 0))
                     finger_data[j] = clamp(finger_data[j], 0, 65535)
+            # print(finger_data)
 
-            # print(f"finger_data: {finger_data}, prev_finger_data: {prev_finger_data}")
+            # Control the ROHand
+            if not self.write_registers(client, ROH_FINGER_POS_TARGET0, finger_data):
+                print("����ָ���ʧ��\nFailed to send control command")
 
-            dir = [0 for _ in range(NUM_FINGERS)]
-            pos = [0 for _ in range(NUM_FINGERS)]
-            target_changed = False
-
-            for i in range(NUM_FINGERS):
-                if finger_data[i] > prev_finger_data[i] + TOLERANCE:
-                    prev_finger_data[i] = finger_data[i]
-                    dir[i] = 1
-                elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
-                    prev_finger_data[i] = finger_data[i]
-                    dir[i] = -1
-
-                # 只在方向发生变化时发送目标位置/角度
-                if dir[i] != prev_dir[i]:
-                    prev_dir[i] = dir[i]
-                    target_changed = True
-
-                if dir[i] == -1:
-                    pos[i] = 0
-                elif dir[i] == 0:
-                    pos[i] = finger_data[i]
-                else:
-                    pos[i] = 65535
-
-            # print(f"target_changed: {target_changed}, dir: {dir}, pos: {pos}")
-
-            if target_changed:
-                # Control the ROHand
-                try:
-                    resp = client.write_registers(ROH_FINGER_POS_TARGET0, pos, NODE_ID)
-                    if resp.isError():
-                        print("控制指令发送失败\nFailed to send control command")
-                        print(f"client.write_registers({ROH_FINGER_POS_TARGET0 + i}, {pos}, {NODE_ID}) returned {resp})")
-                except ModbusException as e:
-                    print("ModbusException:{0}".format(e))
+            # prev_finger_data = finger_data.copy()
+            # for i in range(len(finger_data)):
+            #     prev_finger_data[i] = finger_data[i]
 
         await gforce_device.stop_streaming()
         await gforce_device.disconnect()
