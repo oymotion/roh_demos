@@ -23,7 +23,7 @@ DEV_NAME_PREFIX = "gForceBLE"
 DEV_MIN_RSSI = -128
 
 # sample resolution:BITS_8 or BITS_12
-SAMPLE_RESOLUTION = 8
+SAMPLE_RESOLUTION = 12
 
 # Channel0: thumb, Channel1: index, Channel2: middle, Channel3: ring, Channel4: pinky, Channel5: thumb root
 INDEX_CHANNELS = [7, 6, 0, 3, 4, 5]
@@ -92,7 +92,7 @@ class Application:
 
         # Set the EMG raw data configuration, default configuration is 8 bits, 16 batch_len
         if SAMPLE_RESOLUTION == 12:
-            cfg = EmgRawDataConfig(fs=20, channel_mask=0xFF, batch_len=8, resolution=SampleResolution.BITS_12)
+            cfg = EmgRawDataConfig(fs=100, channel_mask=0xFF, batch_len=48, resolution=SampleResolution.BITS_12)
             await gforce_device.set_emg_raw_data_config(cfg)
 
         baterry_level = await gforce_device.get_battery_level()
@@ -142,7 +142,7 @@ class Application:
                     emg_sum[i] += v[j][INDEX_CHANNELS[i]]
 
             for i in range(NUM_FINGERS):
-                emg_data[i] = emg_sum[i] / len(v)
+                emg_data[i] = (emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
                 finger_data[i] = round(interpolate(emg_data[i], emg_min[i], emg_max[i], 65535, 0))
                 finger_data[i] = clamp(finger_data[i], 0, 65535)
 
@@ -192,7 +192,7 @@ class Application:
                 speed = [0 for _ in range(NUM_FINGERS)]
 
                 for i in range(NUM_FINGERS):
-                    temp = interpolate(abs(curr_pos[i] - finger_data[i]), 0, 4095, 0, 65535)
+                    temp = interpolate(abs(curr_pos[i] - finger_data[i]), 0, 8192, 0, 65535)
                     speed[i] = clamp(round(temp), 0, 65535)
 
                 # Set speed
