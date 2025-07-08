@@ -36,6 +36,7 @@ sys.path.append(parent_dir)
 def clamp(n, smallest, largest):
     return max(smallest, min(n, largest))
 
+
 def interpolate(n, from_min, from_max, to_min, to_max):
     return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
 
@@ -61,42 +62,6 @@ class Application:
                 return port.device
         return None
 
-    def write_registers(self, client, address, values):
-        """
-        Write data to Modbus device.
-        :param client: Modbus client instance
-        :param address: Register address
-        :param values: Data to be written
-        :return: True if successful, False otherwise
-        """
-        try:
-            resp = client.write_registers(address, values, NODE_ID)
-            if resp.isError():
-                print("client.write_registers() returned", resp)
-                return False
-            return True
-        except ModbusException as e:
-            print("ModbusException:{0}".format(e))
-            return False
-
-    def read_registers(self, client, address, count):
-        """
-        Read data from Modbus device.
-        :param client: Modbus client instance
-        :param address: Register address
-        :param count: Register count to be read
-        :return: List of registers if successful, None otherwise
-        """
-        try:
-            resp = client.read_holding_registers(address, count, NODE_ID)
-            if resp.isError():
-                return None
-            return resp.registers
-        except ModbusException as e:
-            print("ModbusException:{0}".format(e))
-            return None
-
-
     async def main(self):
         gforce_device = gforce.GForce(DEV_NAME_PREFIX, DEV_MIN_RSSI)
         emg_data = [0 for _ in range(NUM_FINGERS)]
@@ -106,8 +71,7 @@ class Application:
         finger_data = [0 for _ in range(NUM_FINGERS)]
         prev_dir = [0 for _ in range(NUM_FINGERS)]
 
-        TOLERANCE = 10 # 判断目标位置变化的阈值，位置控制模式时为整数，角度控制模式时为浮点数
-
+        TOLERANCE = round(65536 / 32)  # 判断目标位置变化的阈值，位置控制模式时为整数，角度控制模式时为浮点数
 
         # 连接到Modbus设备
         client = ModbusSerialClient(self.find_comport("CH340"), FramerType.RTU, 115200)
@@ -128,7 +92,7 @@ class Application:
 
         # Set the EMG raw data configuration, default configuration is 8 bits, 16 batch_len
         if SAMPLE_RESOLUTION == 12:
-            cfg = EmgRawDataConfig(fs=100, channel_mask=0xff, batch_len = 48, resolution = SampleResolution.BITS_12)
+            cfg = EmgRawDataConfig(fs=20, channel_mask=0xFF, batch_len=8, resolution=SampleResolution.BITS_12)
             await gforce_device.set_emg_raw_data_config(cfg)
 
         baterry_level = await gforce_device.get_battery_level()
@@ -143,17 +107,24 @@ class Application:
             v = await q.get()
             # print(v)
 
-            for i in range(len(v)):
-                for j in range(NUM_FINGERS):
-                    emg_max[j] = max(emg_max[j], v[i][INDEX_CHANNELS[j]])
-                    emg_min[j] = min(emg_min[j], v[i][INDEX_CHANNELS[j]])
+            emg_sum = [0 for _ in range(NUM_FINGERS)]
+
+            for j in range(len(v)):
+                for i in range(NUM_FINGERS):
+                    emg_sum[i] += v[j][INDEX_CHANNELS[i]]
+
+            for i in range(NUM_FINGERS):
+                temp = emg_sum[i] / len(v)
+                emg_max[i] = max(emg_max[i], temp)
+                emg_min[i] = min(emg_min[i], temp)
+
             # print(emg_min, emg_max)
 
         range_valid = True
 
         for i in range(NUM_FINGERS):
             print("MIN/MAX of finger {0}: {1}-{2}".format(i, emg_min[i], emg_max[i]))
-            if (emg_min[i] >= emg_max[i]):
+            if emg_min[i] >= emg_max[i]:
                 range_valid = False
 
         if not range_valid:
@@ -164,13 +135,18 @@ class Application:
             v = await q.get()
             # print(v)
 
-            for i in range(len(v)):
-                for j in range(NUM_FINGERS):
-                    emg_data[j] = round((emg_data[j] * 14 + v[i][INDEX_CHANNELS[j]]) / 15)
-                    finger_data[j] = round(interpolate(emg_data[j], emg_min[j], emg_max[j], 65535, 0))
-                    finger_data[j] = clamp(finger_data[j], 0, 65535)
+            emg_sum = [0 for _ in range(NUM_FINGERS)]
 
-            # print(f"finger_data: {finger_data}, prev_finger_data: {prev_finger_data}")
+            for j in range(len(v)):
+                for i in range(NUM_FINGERS):
+                    emg_sum[i] += v[j][INDEX_CHANNELS[i]]
+
+            for i in range(NUM_FINGERS):
+                emg_data[i] = emg_sum[i] / len(v)
+                finger_data[i] = round(interpolate(emg_data[i], emg_min[i], emg_max[i], 65535, 0))
+                finger_data[i] = clamp(finger_data[i], 0, 65535)
+
+            # print(f"emg_data: {emg_data}, finger_data: {finger_data}, prev_finger_data: {prev_finger_data}")
 
             dir = [0 for _ in range(NUM_FINGERS)]
             pos = [0 for _ in range(NUM_FINGERS)]
@@ -198,7 +174,36 @@ class Application:
 
             # print(f"target_changed: {target_changed}, dir: {dir}, pos: {pos}")
 
+            # pos = finger_data
+            # target_changed = True
+
             if target_changed:
+                # Read current position
+                curr_pos = [0 for _ in range(NUM_FINGERS)]
+                try:
+                    resp = client.read_holding_registers(ROH_FINGER_POS0, NUM_FINGERS, NODE_ID)
+                    if resp.isError():
+                        print("读取指令发送失败\nFailed to send read command")
+                        print(f"client.read_holding_registers({ROH_FINGER_POS0 + i}, {NUM_FINGERS}, {NODE_ID}) returned {resp})")
+                    curr_pos = resp.registers
+                except ModbusException as e:
+                    print("ModbusException:{0}".format(e))
+
+                speed = [0 for _ in range(NUM_FINGERS)]
+
+                for i in range(NUM_FINGERS):
+                    temp = interpolate(abs(curr_pos[i] - finger_data[i]), 0, 4095, 0, 65535)
+                    speed[i] = clamp(round(temp), 0, 65535)
+
+                # Set speed
+                try:
+                    resp = client.write_registers(ROH_FINGER_SPEED0, speed, NODE_ID)
+                    if resp.isError():
+                        print("控制指令发送失败\nFailed to send control command")
+                        print(f"client.write_registers({ROH_FINGER_SPEED0 + i}, {pos}, {NODE_ID}) returned {resp})")
+                except ModbusException as e:
+                    print("ModbusException:{0}".format(e))
+
                 # Control the ROHand
                 try:
                     resp = client.write_registers(ROH_FINGER_POS_TARGET0, pos, NODE_ID)
