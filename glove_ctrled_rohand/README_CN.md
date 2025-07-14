@@ -16,9 +16,11 @@ cd glove_ctrled_rohand
 pip install -r requirements.txt
 ```
 
-## 使用蓝牙版手套
+## 运行
 
-打开`glove_ctrled_hand.py`并修改设备地址，例如：
+### 蓝牙版手套
+
+打开`glove_ctrled_hand.py` 并修改设备地址，例如：
 
 ```python
 NODE_ID = 2
@@ -30,11 +32,11 @@ NODE_ID = 2
 python glove_ctrled_hand.py
 ```
 
-按照指示进行初始标定后，即可通过蓝牙手套控制灵巧手。
+按照指示进行初始标定后，即可通过手套控制灵巧手。
 
-## 使用USB版手套
+### USB版手套
 
-打开`usb_glove_ctrled_hand.py`并修改设备地址，例如：
+打开`usb_glove_ctrled_hand.py` 并修改设备地址，例如：
 
 ```python
 NODE_ID = 2
@@ -46,4 +48,4 @@ NODE_ID = 2
 python usb_glove_ctrled_hand.py
 ```
 
-按照指示进行初始标定后，即可通过usb版手套控制灵巧手。
+按照指示进行初始标定后，即可通过手套控制灵巧手。

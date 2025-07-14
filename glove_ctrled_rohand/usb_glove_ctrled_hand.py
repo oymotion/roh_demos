@@ -29,6 +29,10 @@ DATA_START_BYTE_NUM = 1
 NODE_ID = 2
 NUM_FINGERS = 6
 
+TOLERANCE = round(65536 / 32)  # 判断目标位置变化的阈值，位置控制模式时为整数，角度控制模式时为浮点数
+SPEED_CONTROL_THRESHOLD = 8192 # 位置变化低于该值时，线性调整手指运动速度
+
+
 current_dir = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
@@ -187,18 +191,19 @@ class OGlove:
         self.is_whole_packet = False
         return True
     
-    def do_calibration(self, cali_min, cali_max) -> bool:
+    def do_calibration(self, cali_min, cali_max, offset) -> bool:
         """
         Do calibration to obtain user-appropriate glove data.
 
         Args:
             cali_min: Minimum of calicration data.
             cali_min: Maximum of calicration data.
+            offset: 0-general glove, 1-left or right glove
 
         Returns: 
             bool: True if calibration data is valid, False otherwise.
         """
-        cali_min[:] = [2000 for _ in range(NUM_FINGERS)]
+        cali_min[:] = [65535 for _ in range(NUM_FINGERS)]
         cali_max[:] = [0 for _ in range(NUM_FINGERS)]
 
         glove_raw_data = bytearray()
@@ -210,11 +215,19 @@ class OGlove:
             glove_data = []
 
             for i in range(int(len(glove_raw_data) / 2)):
-                glove_data.append((glove_raw_data[i * 2]) | (glove_raw_data[i * 2 + 1] << 8)) # 每两个字节为一个数据
+                glove_data.append((glove_raw_data[offset + i * 2]) | (glove_raw_data[offset + i * 2 + 1] << 8)) # 每两个字节为一个数据
 
-                # 不断刷新最大最小值
-                cali_max[i] = max(cali_max[i], glove_data[i])
-                cali_min[i] = min(cali_min[i], glove_data[i])
+            glove_data_sum = [0 for _ in range(len(glove_data))]
+            
+            for _ in range(len(glove_data)):
+                for i in range(len(glove_data)):
+                    glove_data_sum[i] += glove_data[i]
+            
+            # 更新最大最小值
+            for i in range(len(glove_data)):
+                temp = glove_data_sum[i] / len(glove_data)
+                cali_max[i] = max(cali_max[i], temp)
+                cali_min[i] = min(cali_min[i], temp)
 
         for i in range(NUM_FINGERS):
             print("MIN/MAX of finger {0}: {1}-{2}".format(i, cali_min[i], cali_max[i]))
@@ -276,37 +289,57 @@ def read_registers(client, address, count):
 async def main():
     # 配置串口参数（根据实际设备修改）
     glove_serial_port = serial.Serial(
-        port=find_comport("STM" or "串行设备"),
+        port=find_comport("串行设备") or find_comport("STM"),
         baudrate=115200,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
         timeout=0.1,
     )
-    print(f"手套使用端口:{0}\nGlove using serial port: {0}".format(glove_serial_port.name))
+    print(f"手套使用端口:\nGlove using serial port: {glove_serial_port.name}")
 
     # 初始化数据
-    prev_glove_data = [0 for _ in range(NUM_FINGERS)]
     finger_data = [0 for _ in range(NUM_FINGERS)] # 灵巧手手指位置
+    prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
+    prev_dir = [0 for _ in range(NUM_FINGERS)]
 
     # 连接到Modbus设备
     client = ModbusSerialClient(find_comport("CH340"), FramerType.RTU, 115200)
     if not client.connect():
         print("连接Modbus设备失败\nFailed to connect to Modbus device")
         exit(-1)
+
+    # 设置灵巧手运动速度
+    speed = 65535
+    if not write_registers(client, ROH_FINGER_SPEED0, [speed, speed, speed, speed, speed]):
+        print("设置灵巧手运动速度失败\nFailed to set finger speed")
     
     # 初始化手套
     oglove = OGlove(serial=glove_serial_port, timeout=2000)
+    glove_raw_data = bytearray() # 手套原始数据，单字节形式
+    # 区分左右手套
+    left_or_right = None
+    offset = 0
+    
+    if oglove.get_data(glove_raw_data):
+        if len(glove_raw_data) & 0x01 == 1:
+            left_or_right = glove_raw_data[0]
+            offset = 1
+    
+    if left_or_right == 0:
+        print("使用左手手套\nUse left glove")
+    elif left_or_right == 1:
+        print("使用右手手套\nUse right glove")
+    else:
+        print("使用通用手套\nUse general glove")
 
     # 开始校正
     cali_min = [0 for _ in range(NUM_FINGERS)]
     cali_max = [0 for _ in range(NUM_FINGERS)]
-    if not (oglove.do_calibration(cali_min, cali_max)):
+    if not (oglove.do_calibration(cali_min, cali_max, offset)):
         exit(-1)
         
     try:
-        glove_raw_data = bytearray() # 手套原始数据，单字节形式
-
         while True:
             # 读取串口数据
             if oglove.get_data(glove_raw_data):
@@ -314,23 +347,69 @@ async def main():
 
                 # 处理数据
                 for i in range(int(len(glove_raw_data) / 2)):
-                    glove_data.append(((glove_raw_data[i * 2]) | (glove_raw_data[i * 2 + 1] << 8))) # 每两个字节为一个数据
-                    # glove_data[i] = round((prev_glove_data[i] * 7 + glove_data[i]) / 8)  # 数据平滑处理
+                    glove_data.append(((glove_raw_data[offset + i * 2]) | (glove_raw_data[offset + i * 2 + 1] << 8))) # 每两个字节为一个数据
 
-                    # 减小发送频率，避免手指抖动
-                    if abs(glove_data[i] - prev_glove_data[i]) < 50:
-                        glove_data[i] = prev_glove_data[i] 
-                    else:
-                        prev_glove_data[i] = glove_data[i]  # 保存当前数据
+                glove_data_sum = [0 for _ in range(len(glove_data))]
+                    
+                for j in range(len(glove_data)):
+                    for i in range(len(glove_data)):
+                        glove_data_sum[i] += glove_data[i]
 
+                for i in range(NUM_FINGERS):
+                    glove_data[i] = (glove_data[i] * 3 + glove_data_sum[i] / len(glove_data)) / 4 # 平滑
                     # 映射到灵巧手位置
                     finger_data[i] = round(interpolate(glove_data[i], cali_min[i], cali_max[i], 65535, 0))
                     finger_data[i] = clamp(finger_data[i], 0, 65535) # 限制在最大最小范围内
+                    
+                dir = [0 for _ in range(NUM_FINGERS)]
+                pos = [0 for _ in range(NUM_FINGERS)]
+                target_changed = False
 
-                # print(glove_data)
-                # print(finger_data)
-                if not write_registers(client, ROH_FINGER_POS_TARGET0, finger_data):
-                    print("控制指令发送失败\nFailed to send control command")
+                for i in range(NUM_FINGERS):
+                    if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+                        prev_finger_data[i] = finger_data[i]
+                        dir[i] = 1
+                    elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
+                        prev_finger_data[i] = finger_data[i]
+                        dir[i] = -1
+
+                    # 只在方向发生变化时发送目标位置/角度
+                    if dir[i] != prev_dir[i]:
+                        prev_dir[i] = dir[i]
+                        target_changed = True
+
+                    if dir[i] == -1:
+                        pos[i] = 0
+                    elif dir[i] == 0:
+                        pos[i] = finger_data[i]
+                    else:
+                        pos[i] = 65535
+
+                if target_changed:
+                    # Read current position
+                    curr_pos = [0 for _ in range(NUM_FINGERS)]
+                    resp = read_registers(client, ROH_FINGER_POS0, NUM_FINGERS)
+
+                    if resp is not None:
+                        curr_pos = resp
+                    else:
+                        print("读取位置指令发送失败\nFailed to send read pos command")
+                        print(f"read_registers({ROH_FINGER_POS0}, {NUM_FINGERS}, {NODE_ID}) returned {resp})")
+                        continue
+
+                    speed = [0 for _ in range(NUM_FINGERS)]
+
+                    for i in range(NUM_FINGERS):
+                        temp = interpolate(abs(curr_pos[i] - finger_data[i]), 0, SPEED_CONTROL_THRESHOLD, 0, 65535)
+                        speed[i] = clamp(round(temp), 0, 65535)
+
+                    # Set speed
+                    if not write_registers(client, ROH_FINGER_SPEED0, speed):
+                        print("设置速度失败\nFailed to set speed")
+
+                    # Control the ROHand
+                    if not write_registers(client, ROH_FINGER_POS_TARGET0, pos):
+                        print("设置位置失败\nFailed to set pos")
             
     except KeyboardInterrupt:
         print("用户终止程序\nUser terminated the program")
