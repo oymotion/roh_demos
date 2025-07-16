@@ -16,7 +16,7 @@ cd glove_ctrled_rohand
 pip install -r requirements.txt
 ```
 
-## Using the Bluetooth version of the glove
+---
 
 * Open the file `glove_ctrled_hand.py` and modify the device address as needed, for example:
 
@@ -24,26 +24,26 @@ pip install -r requirements.txt
 NODE_ID = 2
 ```
 
-* Run the program:
+---
+
+Choose the POS_INPUT_TYPE class according to the type of glove:
+
+* Using bluetooth version of glove:
+
+```python
+POS_INPUT_TYPE = PosInputBleGlove()
+```
+
+* Using USB version of glove:
+
+```python
+POS_INPUT_TYPE = PosInputUsbGlove()
+```
+
+## Run
 
 ```python
 python glove_ctrled_hand.py
 ```
 
-* Follow the on-screen instructions to perform the initial calibration, and then you can control the ROHand using the bluetooth glove.
-
-## Using the USB version of the glove
-
-* Open the file `usb_glove_ctrled_hand.py` and modify the device address as needed, for example:
-
-```python
-NODE_ID = 2
-```
-
-* Run the program:
-
-```python
-python usb_glove_ctrled_hand.py
-```
-
-* Follow the on-screen instructions to perform the initial calibration, and then you can control the ROHand using the usb glove.
+* Follow the on-screen instructions to perform the initial calibration, and then you can control the ROHand using the glove.

@@ -1,4 +1,8 @@
+# !/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 # Sample code to get glove data and controls ROHand via ModBus-RTU protocol
+
 import asyncio
 import os
 import signal
@@ -9,27 +13,21 @@ from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
-from lib_gforce import gforce
-from lib_gforce.gforce import EmgRawDataConfig, SampleResolution
-
 from roh_registers_v1 import *
+from pos_input_ble_glove import *
+from pos_input_usb_glove import *
+
 
 # ROHand configuration
 NODE_ID = 2
 NUM_FINGERS = 6
 
-# Device filters
-DEV_NAME_PREFIX = "gForceBLE"
-DEV_MIN_RSSI = -128
-
-# sample resolution:BITS_8 or BITS_12
-SAMPLE_RESOLUTION = 12
-
-# Channel0: thumb, Channel1: index, Channel2: middle, Channel3: ring, Channel4: pinky, Channel5: thumb root
-INDEX_CHANNELS = [7, 6, 0, 3, 4, 5]
+# Glove configuration
+POS_INPUT_TYPE = PosInputBleGlove()
+# POS_INPUT_TYPE = PosInputUsbGlove()
 
 TOLERANCE = round(65536 / 32)  # 判断目标位置变化的阈值，位置控制模式时为整数，角度控制模式时为浮点数
-SPEED_CONTROL_THRESHOLD = 8192 # 位置变化低于该值时，线性调整手指运动速度
+SPEED_CONTROL_THRESHOLD = 8192  # 位置变化低于该值时，线性调整手指运动速度
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -64,7 +62,7 @@ class Application:
             if port_name in port.description:
                 return port.device
         return None
-    
+
     def write_registers(self, client, address, values):
         """
         Write data to Modbus device.
@@ -82,7 +80,7 @@ class Application:
         except ModbusException as e:
             print("ModbusException:{0}".format(e))
             return False
-        
+
     def read_registers(self, client, address, count):
         """
         Read data from Modbus device.
@@ -94,17 +92,13 @@ class Application:
         try:
             resp = client.read_holding_registers(address, count, NODE_ID)
             if resp.isError():
-                return None    
+                return None
             return resp.registers
         except ModbusException as e:
             print("ModbusException:{0}".format(e))
             return None
 
     async def main(self):
-        gforce_device = gforce.GForce(DEV_NAME_PREFIX, DEV_MIN_RSSI)
-        emg_data = [0 for _ in range(NUM_FINGERS)]
-        emg_min = [65535 for _ in range(NUM_FINGERS)]
-        emg_max = [0 for _ in range(NUM_FINGERS)]
         prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
         prev_dir = [0 for _ in range(NUM_FINGERS)]
@@ -115,74 +109,14 @@ class Application:
             print("连接Modbus设备失败\nFailed to connect to Modbus device")
             exit(-1)
 
-        # GForce.connect() may get exception, but we just ignore for gloves
-        try:
-            await gforce_device.connect()
-        except Exception as e:
-            print(e)
+        pos_input = POS_INPUT_TYPE
 
-        if gforce_device.client == None or not gforce_device.client.is_connected:
+        if not await pos_input.start():
+            print("初始化失败,退出\nFailed to initialize, exit.")
             exit(-1)
 
-        print("Connected to {0}".format(gforce_device.device_name))
-
-        # Set the EMG raw data configuration, default configuration is 8 bits, 16 batch_len
-        if SAMPLE_RESOLUTION == 12:
-            cfg = EmgRawDataConfig(fs=100, channel_mask=0xFF, batch_len=48, resolution=SampleResolution.BITS_12)
-            await gforce_device.set_emg_raw_data_config(cfg)
-
-        baterry_level = await gforce_device.get_battery_level()
-        print("电池电量: {0}%\nDevice baterry level: {0}%".format(baterry_level))
-
-        await gforce_device.set_subscription(gforce.DataSubscription.EMG_RAW)
-        q = await gforce_device.start_streaming()
-
-        print("校正模式，请执行握拳和张开动作若干次\nCalibrating mode, please perform a fist and open action several times")
-
-        for _ in range(256):
-            v = await q.get()
-            # print(v)
-
-            emg_sum = [0 for _ in range(NUM_FINGERS)]
-
-            for j in range(len(v)):
-                for i in range(NUM_FINGERS):
-                    emg_sum[i] += v[j][INDEX_CHANNELS[i]]
-
-            for i in range(NUM_FINGERS):
-                temp = emg_sum[i] / len(v)
-                emg_max[i] = max(emg_max[i], temp)
-                emg_min[i] = min(emg_min[i], temp)
-
-            # print(emg_min, emg_max)
-
-        range_valid = True
-
-        for i in range(NUM_FINGERS):
-            print("MIN/MAX of finger {0}: {1}-{2}".format(i, emg_min[i], emg_max[i]))
-            if emg_min[i] >= emg_max[i]:
-                range_valid = False
-
-        if not range_valid:
-            print("无效的校正范围,退出\nInvalid range(s), exit.")
-            self.terminated = True
-
         while not self.terminated:
-            v = await q.get()
-            # print(v)
-
-            emg_sum = [0 for _ in range(NUM_FINGERS)]
-
-            for j in range(len(v)):
-                for i in range(NUM_FINGERS):
-                    emg_sum[i] += v[j][INDEX_CHANNELS[i]]
-
-            for i in range(NUM_FINGERS):
-                emg_data[i] = (emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
-                finger_data[i] = round(interpolate(emg_data[i], emg_min[i], emg_max[i], 65535, 0))
-                finger_data[i] = clamp(finger_data[i], 0, 65535)
-
-            # print(f"emg_data: {emg_data}, finger_data: {finger_data}, prev_finger_data: {prev_finger_data}")
+            finger_data = await pos_input.get_position()
 
             dir = [0 for _ in range(NUM_FINGERS)]
             pos = [0 for _ in range(NUM_FINGERS)]
@@ -239,8 +173,8 @@ class Application:
                 if not self.write_registers(client, ROH_FINGER_POS_TARGET0, pos):
                     print("设置位置失败\nFailed to set pos")
 
-        await gforce_device.stop_streaming()
-        await gforce_device.disconnect()
+        await pos_input.stop()
+        client.close()
 
 
 if __name__ == "__main__":
