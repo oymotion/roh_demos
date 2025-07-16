@@ -26,18 +26,18 @@ NODE_ID = 2
 
 ---
 
-Choose the POS_INPUT_TYPE class according to the type of glove:
+Choose the PosInput type according to the type of glove. ONLY ONE of the following should be uncommented :
 
 * Using bluetooth version of glove:
 
 ```python
-POS_INPUT_TYPE = PosInputBleGlove()
+from pos_input_ble_glove import PosInputBleGlove as PosInput
 ```
 
 * Using USB version of glove:
 
 ```python
-POS_INPUT_TYPE = PosInputUsbGlove()
+from pos_input_usb_glove import PosInputUsbGlove as PosInput
 ```
 
 ## Run

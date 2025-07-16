@@ -1,8 +1,5 @@
 import time
 import serial
-import os
-import sys
-import asyncio
 
 from serial.tools import list_ports
 
@@ -23,10 +20,6 @@ DATA_START_BYTE_NUM = 1
 # ROHand configuration
 NUM_FINGERS = 6
 
-
-current_dir = os.path.dirname(os.path.realpath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
 
 # OHand bus context
 class PosInputUsbGlove:
@@ -51,7 +44,7 @@ class PosInputUsbGlove:
             timeout=0.1,
         )
         print(f"手套使用端口:\nGlove using serial port: {self.serial_port.name}")
-        
+
         self.timeout = 2000
         self.is_whole_packet = False
         self.decode_state = WAIT_ON_HEADER_0
@@ -62,7 +55,7 @@ class PosInputUsbGlove:
         # glove data init
         self._cali_min = [65535 for _ in range(NUM_FINGERS)]
         self._cali_max = [0 for _ in range(NUM_FINGERS)]
-        self._glove_raw_data = bytearray() # 手套原始数据，单字节形式
+        self._glove_raw_data = bytearray()  # 手套原始数据，单字节形式
         self._offset = 0
 
     def clamp(self, n, smallest, largest):
@@ -210,16 +203,16 @@ class PosInputUsbGlove:
             if port_name in port.description:
                 return port.device
         return None
-    
+
     async def start(self) -> bool:
         # 区分左右手套
         left_or_right = None
-        
+
         if self.get_data(self._glove_raw_data):
             if len(self._glove_raw_data) & 0x01 == 1:
                 left_or_right = self._glove_raw_data[0]
                 self._offset = 1
-        
+
         if left_or_right == 0:
             print("使用左手手套\nUse left glove")
         elif left_or_right == 1:
@@ -234,14 +227,16 @@ class PosInputUsbGlove:
             glove_data = []
 
             for i in range(int(len(self._glove_raw_data) / 2)):
-                glove_data.append((self._glove_raw_data[self._offset + i * 2]) | (self._glove_raw_data[self._offset + i * 2 + 1] << 8)) # 每两个字节为一个数据
+                glove_data.append(
+                    (self._glove_raw_data[self._offset + i * 2]) | (self._glove_raw_data[self._offset + i * 2 + 1] << 8)
+                )  # 每两个字节为一个数据
 
             glove_data_sum = [0 for _ in range(len(glove_data))]
-            
+
             for _ in range(len(glove_data)):
                 for i in range(len(glove_data)):
                     glove_data_sum[i] += glove_data[i]
-            
+
             # 更新最大最小值
             for i in range(len(glove_data)):
                 temp = glove_data_sum[i] / len(glove_data)
@@ -250,37 +245,39 @@ class PosInputUsbGlove:
 
         for i in range(NUM_FINGERS):
             print("MIN/MAX of finger {0}: {1}-{2}".format(i, self._cali_min[i], self._cali_max[i]))
-            if (self._cali_min[i] >= self._cali_max[i]):
+            if self._cali_min[i] >= self._cali_max[i]:
                 print("无效数据，退出.\nInvalid data, exit.")
-                return False  
+                return False
         return True
 
     async def get_position(self):
         # 初始化数据
-        finger_data = [0 for _ in range(NUM_FINGERS)] # 灵巧手手指位置
-            
+        finger_data = [0 for _ in range(NUM_FINGERS)]  # 灵巧手手指位置
+
         # 读取串口数据
         if self.get_data(self._glove_raw_data):
-            glove_data = [] # 手套完整数据，两个字节
+            glove_data = []  # 手套完整数据，两个字节
 
             # 处理数据
             for i in range(int(len(self._glove_raw_data) / 2)):
-                glove_data.append(((self._glove_raw_data[self._offset + i * 2]) | (self._glove_raw_data[self._offset + i * 2 + 1] << 8))) # 每两个字节为一个数据
+                glove_data.append(
+                    ((self._glove_raw_data[self._offset + i * 2]) | (self._glove_raw_data[self._offset + i * 2 + 1] << 8))
+                )  # 每两个字节为一个数据
 
             glove_data_sum = [0 for _ in range(len(glove_data))]
-                
+
             for j in range(len(glove_data)):
                 for i in range(len(glove_data)):
                     glove_data_sum[i] += glove_data[i]
 
             for i in range(NUM_FINGERS):
-                glove_data[i] = (glove_data[i] * 3 + glove_data_sum[i] / len(glove_data)) / 4 # 平滑
+                glove_data[i] = (glove_data[i] * 3 + glove_data_sum[i] / len(glove_data)) / 4  # 平滑
                 # 映射到灵巧手位置
                 finger_data[i] = round(self.interpolate(glove_data[i], self._cali_min[i], self._cali_max[i], 65535, 0))
-                finger_data[i] = self.clamp(finger_data[i], 0, 65535) # 限制在最大最小范围内
-        
+                finger_data[i] = self.clamp(finger_data[i], 0, 65535)  # 限制在最大最小范围内
+
         return finger_data
-                           
+
     async def stop(self):
         self.serial_port.close()
         print("串口已关闭\nSerial port closed")

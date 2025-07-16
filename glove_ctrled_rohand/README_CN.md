@@ -26,18 +26,18 @@ NODE_ID = 2
 
 ---
 
-根据手套类型，选择POS_INPUT_TYPE类，例如：
+根据手套类型选择PosInput类型，下面两种类型中只能选择一种：
 
 * 使用蓝牙版手套:
 
 ```python
-POS_INPUT_TYPE = PosInputBleGlove()
+from pos_input_ble_glove import PosInputBleGlove as PosInput
 ```
 
 * 使用USB版手套:
 
 ```python
-POS_INPUT_TYPE = PosInputUsbGlove()
+from pos_input_usb_glove import PosInputUsbGlove as PosInput
 ```
 
 ## 运行

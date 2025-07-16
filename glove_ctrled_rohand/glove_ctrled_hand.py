@@ -14,25 +14,21 @@ from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
 from roh_registers_v1 import *
-from pos_input_ble_glove import *
-from pos_input_usb_glove import *
+
+# Choose input device. ONLY ONE of the following should be uncommented.
+# Uncomment following line to use BLE Glove
+from pos_input_ble_glove import PosInputBleGlove as PosInput
+# Or
+# Uncomment following line to use USB Glove
+# from pos_input_usb_glove import PosInputUsbGlove as PosInput
 
 
 # ROHand configuration
 NODE_ID = 2
 NUM_FINGERS = 6
 
-# Glove configuration
-POS_INPUT_TYPE = PosInputBleGlove()
-# POS_INPUT_TYPE = PosInputUsbGlove()
-
 TOLERANCE = round(65536 / 32)  # 判断目标位置变化的阈值，位置控制模式时为整数，角度控制模式时为浮点数
 SPEED_CONTROL_THRESHOLD = 8192  # 位置变化低于该值时，线性调整手指运动速度
-
-current_dir = os.path.dirname(os.path.realpath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-
 
 def clamp(n, smallest, largest):
     return max(smallest, min(n, largest))
@@ -109,7 +105,7 @@ class Application:
             print("连接Modbus设备失败\nFailed to connect to Modbus device")
             exit(-1)
 
-        pos_input = POS_INPUT_TYPE
+        pos_input = PosInput()
 
         if not await pos_input.start():
             print("初始化失败,退出\nFailed to initialize, exit.")
