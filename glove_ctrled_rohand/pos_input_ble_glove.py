@@ -93,7 +93,11 @@ class PosInputBleGlove:
         return range_valid
 
     async def get_position(self):
-        v = await self._q.get()
+        while True:
+            v = await self._q.get()
+            if self._q.empty():
+                break
+
         # print(v)
 
         finger_data = [0 for _ in range(NUM_FINGERS)]
