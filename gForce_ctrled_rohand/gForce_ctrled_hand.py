@@ -11,9 +11,9 @@ from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from common.roh_registers_v1 import *
 from lib_gforce import gforce
-
-from roh_registers_v1 import *
 
 # ROHand configuration
 NODE_ID = 2

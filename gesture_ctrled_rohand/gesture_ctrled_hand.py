@@ -1,20 +1,27 @@
 import os
+import sys
 import cv2
-import keyboard
+import time
+import queue
+import threading
 
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from HandTrackingModule import HandDetector
-from roh_registers_v1 import *
+from common.roh_registers_v1 import *
+
+file_path = os.path.abspath(os.path.dirname(__file__))
 
 # Hand configuration
 NUM_FINGERS = 6
 NODE_ID = 2
 
-file_path = os.path.abspath(os.path.dirname(__file__))
+gesture_queue = queue.Queue(maxsize=NUM_FINGERS)
+image_queue = queue.Queue(maxsize=1)
 
 video = cv2.VideoCapture(0)
 
@@ -71,20 +78,16 @@ def read_registers(client, address, count):
     try:
         resp = client.read_holding_registers(address, count, NODE_ID)
         if resp.isError():
-            return None    
+            return None
         return resp.registers
     except ModbusException as e:
         print("ModbusException:{0}".format(e))
         return None
 
-def main():
-    client = ModbusSerialClient(find_comport("CH340"), FramerType.RTU, 115200)
-    if not client.connect():
-        print("连接Modbus设备失败\nFailed to connect to Modbus device")
-        exit(-1)
-
-    prev_gesture = [0, 0, 0, 0, 0, 0]
-
+def camera_thread():
+    timer = 0
+    interval = 10
+    original_gesture0 = 0
     while True:
         _, img = video.read()
         img = cv2.flip(img, 1)
@@ -98,12 +101,12 @@ def main():
             if lmlist and lmlist[0]:
                 try:
                     finger_up = detector.fingersUp(lmlist[0])
+
                     for i in range(len(finger_up)):
                         gesture[i] = int(gesture[i] * (1 - finger_up[i]))
+
                 except Exception as e:
                     print(str(e))
-
-                # print(gesture)
 
                 if finger_up[:5] == [0, 0, 0, 0, 0]:
                     gesture_pic = cv2.imread(file_path + "/gestures/0.png")
@@ -120,15 +123,55 @@ def main():
             else:
                 gesture = [0, 0, 0, 0, 0, 0]
 
-        # print(gesture_pic)
         if gesture_pic.any():
             gesture_pic = cv2.resize(gesture_pic, (161, 203))
             img[0:203, 0:161] = gesture_pic
+
+        if(gesture[1] == 65535 and gesture[5] == 65535 and gesture[0] == 45000):
+            if timer == 0:
+                original_gesture0 = gesture[0]
+            timer += 1
+
+            if timer <= interval:
+                gesture[0] = 0
+            else:
+                gesture[0] = original_gesture0
+        else:
+            if timer > 0:
+                gesture[0] = original_gesture0
+            timer = 0
+
+        if not gesture_queue.full():
+            gesture_queue.put(gesture)
+        if not image_queue.full():
+            image_queue.put(img)
+
+def main():
+    client = ModbusSerialClient(find_comport("CH340"), FramerType.RTU, 115200)
+    if not client.connect():
+        print("连接Modbus设备失败\nFailed to connect to Modbus device")
+        exit(-1)
+
+    prev_gesture = [0, 0, 0, 0, 0, 0]
+    last_time = time.time()
+
+    threading.Thread(target=camera_thread, daemon=True).start()
+
+    while True:
+        gesture = gesture_queue.get()
+        if not image_queue.empty():
+            img = image_queue.get()
             cv2.putText(img, "Try with gestures", (16, 272), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5)
             cv2.imshow("Video", img)
 
-
         if (prev_gesture != gesture):
+            # When the gesture change time is less than 0.7 seconds, the thumb will remain open
+            current_time = time.time()
+            if (current_time - last_time < 0.7):
+                gesture[0] = 0
+            else:
+                last_time = current_time
+
             if not write_registers(client, ROH_FINGER_POS_TARGET0, gesture):
                 print("写入目标位置失败\nFailed to write target position")
             prev_gesture = gesture

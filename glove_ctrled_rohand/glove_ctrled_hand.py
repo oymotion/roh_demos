@@ -1,11 +1,8 @@
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 # Sample code to get glove data and controls ROHand via ModBus-RTU protocol
 
 import asyncio
-import os
 import signal
+import os
 import sys
 
 from pymodbus import FramerType
@@ -13,7 +10,8 @@ from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
-from roh_registers_v1 import *
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from common.roh_registers_v1 import *
 
 # Choose input device. ONLY ONE of the following should be uncommented.
 # Uncomment following line to use BLE Glove

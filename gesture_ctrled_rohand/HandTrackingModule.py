@@ -147,13 +147,15 @@ class HandDetector:
                 degree = int(self.calculate_angle(thumb_base, index_base, middle_base))
                 degree2Interpolation = interpolate(degree, MINTHUMBDEGREE, MAXTHUMBDEGREE, 0, 1)
                 degree2Interpolation = round(clamp(degree2Interpolation, 0, 1), 2)
+                # print("degree2Interpolation: " + "  " +str(degree2Interpolation))
                 if 0 <= degree2Interpolation <= 0.2:
                     degree2Interpolation = 0
-                elif 0.6 <= degree2Interpolation <= 1:
+                elif 0.85 <= degree2Interpolation <= 1:
                     degree2Interpolation = 1
                 else:
-                    return fingers
-                # print("degree: " + str(degree) + "  " +str(degree2Interpolation))
+                     degree2Interpolation = self.previousThumbDegreeValue
+                    # return fingers
+                self.previousThumbDegreeValue = degree2Interpolation
                 fingers.append(degree2Interpolation)
             else:
                 return fingers

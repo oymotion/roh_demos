@@ -11,7 +11,8 @@ from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
-from roh_registers_v1 import *
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from common.roh_registers_v1 import *
 
 # ROHand configuration
 NODE_ID = [2] # Support multiple nodes
