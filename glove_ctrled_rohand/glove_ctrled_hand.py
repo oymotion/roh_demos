@@ -98,7 +98,7 @@ class Application:
         prev_dir = [0 for _ in range(NUM_FINGERS)]
 
         # 连接到Modbus设备
-        client = ModbusSerialClient(self.find_comport("CH340"), FramerType.RTU, 115200)
+        client = ModbusSerialClient(self.find_comport("CH340") or self.find_comport("USB"), FramerType.RTU, 115200)
         if not client.connect():
             print("连接Modbus设备失败\nFailed to connect to Modbus device")
             exit(-1)

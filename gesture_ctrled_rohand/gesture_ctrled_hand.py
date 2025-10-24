@@ -87,7 +87,9 @@ def read_registers(client, address, count):
 def camera_thread():
     timer = 0
     interval = 10
-    original_gesture0 = 0
+    original_thumb_pos = 0
+    prev_index_pos = 0
+
     while True:
         _, img = video.read()
         img = cv2.flip(img, 1)
@@ -102,9 +104,10 @@ def camera_thread():
                 try:
                     finger_up = detector.fingersUp(lmlist[0])
 
-                    for i in range(len(finger_up)):
-                        gesture[i] = int(gesture[i] * (1 - finger_up[i]))
-
+                    # Ignore bad gestures
+                    if finger_up[1:5] != [0, 1, 0, 0]:
+                        for i in range(len(finger_up)):
+                            gesture[i] = int(gesture[i] * (1 - finger_up[i]))
                 except Exception as e:
                     print(str(e))
 
@@ -127,18 +130,23 @@ def camera_thread():
             gesture_pic = cv2.resize(gesture_pic, (161, 203))
             img[0:203, 0:161] = gesture_pic
 
-        if(gesture[1] == 65535 and gesture[5] == 65535 and gesture[0] == 45000):
+        # To avoid finger interference
+        if gesture[0] > 0 and gesture[5] > 0:
+            if prev_index_pos != gesture[1]:
+                timer = 0
+                prev_index_pos = gesture[1]
+    
             if timer == 0:
-                original_gesture0 = gesture[0]
+                original_thumb_pos = gesture[0]
             timer += 1
 
             if timer <= interval:
                 gesture[0] = 0
             else:
-                gesture[0] = original_gesture0
+                gesture[0] = original_thumb_pos
         else:
             if timer > 0:
-                gesture[0] = original_gesture0
+                gesture[0] = original_thumb_pos
             timer = 0
 
         if not gesture_queue.full():
@@ -147,7 +155,7 @@ def camera_thread():
             image_queue.put(img)
 
 def main():
-    client = ModbusSerialClient(find_comport("CH340"), FramerType.RTU, 115200)
+    client = ModbusSerialClient(find_comport("CH340") or find_comport("USB"), FramerType.RTU, 115200)
     if not client.connect():
         print("连接Modbus设备失败\nFailed to connect to Modbus device")
         exit(-1)

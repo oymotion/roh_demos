@@ -129,7 +129,7 @@ class Application:
         return True
 
     async def main(self):
-        client = ModbusSerialClient(self.find_comport("CH340"), FramerType.RTU, 115200)
+        client = ModbusSerialClient(self.find_comport("CH340") or self.find_comport("USB"), FramerType.RTU, 115200)
         if not client.connect():
             print("Failed to connect Modbus device")
             exit(-1)
