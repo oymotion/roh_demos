@@ -38,8 +38,12 @@ class PosInputBleGlove:
         return max(smallest, min(n, largest))
 
     def interpolate(self, n, from_min, from_max, to_min, to_max):
+
         # 将n从from_min到from_max的范围映射到to_min到to_max的范围
-        return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        # return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        tmp = to_max-(n - from_min) / (from_max - from_min)*(to_max - to_min)
+        return tmp*(1-(n-from_min)/(from_max-from_min))
+        
 
     async def start(self) -> bool:
         # GForce.connect() may get exception, but we just ignore for gloves
@@ -110,7 +114,7 @@ class PosInputBleGlove:
         for i in range(NUM_FINGERS):
             self._emg_data[i] = (self._emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
 
-            finger_data[i] = round(self.interpolate(self._emg_data[i], self._emg_min[i], self._emg_max[i], 65535, 0))
+            finger_data[i] = round(self.interpolate(self._emg_data[i], self._emg_min[i], self._emg_max[i], 0, 65535))
             finger_data[i] = self.clamp(finger_data[i], 0, 65535)
 
         return finger_data
