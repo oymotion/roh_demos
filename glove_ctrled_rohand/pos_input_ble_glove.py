@@ -32,6 +32,7 @@ class PosInputBleGlove:
         self._emg_data = [0 for _ in range(NUM_FINGERS)]
         self._emg_min = [65535 for _ in range(NUM_FINGERS)]
         self._emg_max = [0 for _ in range(NUM_FINGERS)]
+        self._pre_finger_data = [0 for _ in range(NUM_FINGERS)]
         self._q = None
 
     def clamp(self, n, smallest, largest):
@@ -42,7 +43,7 @@ class PosInputBleGlove:
         # 将n从from_min到from_max的范围映射到to_min到to_max的范围
         # return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
         tmp = to_max-(n - from_min) / (from_max - from_min)*(to_max - to_min)
-        return tmp*(1-(n-from_min)/(from_max-from_min))
+        return tmp *(1-(n-from_min)/(from_max-from_min))
         
 
     async def start(self) -> bool:
@@ -113,10 +114,12 @@ class PosInputBleGlove:
 
         for i in range(NUM_FINGERS):
             self._emg_data[i] = (self._emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
-
+            if(self._emg_data[i] < self._emg_min[i] or self._emg_data[i] > self._emg_max[i]):
+                return self._pre_finger_data
             finger_data[i] = round(self.interpolate(self._emg_data[i], self._emg_min[i], self._emg_max[i], 0, 65535))
             finger_data[i] = self.clamp(finger_data[i], 0, 65535)
 
+        self._pre_finger_data = finger_data
         return finger_data
 
     async def stop(self):
