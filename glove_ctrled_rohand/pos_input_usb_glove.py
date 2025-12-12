@@ -63,7 +63,9 @@ class PosInputUsbGlove:
 
     def interpolate(self, n, from_min, from_max, to_min, to_max):
         # 将n从from_min到from_max的范围映射到to_min到to_max的范围
-        return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        # return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        tmp = to_max-(n - from_min) / (from_max - from_min)*(to_max - to_min)
+        return tmp *(1-(n-from_min)/(from_max-from_min))
 
     def calc_lrc(self, lrcBytes, lrcByteCount):
         """
@@ -273,7 +275,7 @@ class PosInputUsbGlove:
             for i in range(NUM_FINGERS):
                 glove_data[i] = (glove_data[i] * 3 + glove_data_sum[i] / len(glove_data)) / 4  # 平滑
                 # 映射到灵巧手位置
-                finger_data[i] = round(self.interpolate(glove_data[i], self._cali_min[i], self._cali_max[i], 65535, 0))
+                finger_data[i] = round(self.interpolate(glove_data[i], self._cali_min[i], self._cali_max[i], 0, 65535))
                 finger_data[i] = self.clamp(finger_data[i], 0, 65535)  # 限制在最大最小范围内
 
         return finger_data
