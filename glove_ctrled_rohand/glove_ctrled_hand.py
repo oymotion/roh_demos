@@ -1,27 +1,20 @@
 # Sample code to get glove data and controls ROHand via ModBus-RTU protocol
-
 import asyncio
-import signal
 import os
+import signal
 import sys
-
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from common.roh_registers_v1 import *
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Choose input device. ONLY ONE of the following should be uncommented.
-# Uncomment following line to use BLE Glove
-from pos_input_ble_glove import PosInputBleGlove as PosInput
-# Or
-# Uncomment following line to use USB Glove
-# from pos_input_usb_glove import PosInputUsbGlove as PosInput
+from common.roh_registers_v1 import *
 
 
 # ROHand configuration
+
 NODE_ID = 2
 NUM_FINGERS = 6
 
@@ -96,6 +89,11 @@ class Application:
         prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
         prev_dir = [0 for _ in range(NUM_FINGERS)]
+
+        if self.find_comport("STM Serial") or self.find_comport("串行设备"):
+            from pos_input_usb_glove import PosInputUsbGlove as PosInput
+        else:
+            from pos_input_ble_glove import PosInputBleGlove as PosInput
 
         # 连接到Modbus设备
         client = ModbusSerialClient(self.find_comport("CH340") or self.find_comport("USB"), FramerType.RTU, 115200)
