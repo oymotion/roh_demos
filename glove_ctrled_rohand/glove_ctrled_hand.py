@@ -135,13 +135,19 @@ class Application:
             #         pos[i] = finger_data[i]
             #     else:
             #         pos[i] = 65535
+            # for i in range(NUM_FINGERS):
+            #     if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         target_changed = True
+            #     elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         target_changed = True
             for i in range(NUM_FINGERS):
-                if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+                if finger_data[i] != prev_finger_data[i]:
                     prev_finger_data[i] = finger_data[i]
                     target_changed = True
-                elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
-                    prev_finger_data[i] = finger_data[i]
-                    target_changed = True
+                    break
+            # print(f"finger_data: {finger_data}") 
             # print(f"target_changed: {target_changed}, dir: {dir}, pos: {pos}")
 
             # pos = finger_data
