@@ -111,7 +111,7 @@ class PosInputBleGlove:
         for j in range(len(v)):
             for i in range(NUM_FINGERS):
                 emg_sum[i] += v[j][INDEX_CHANNELS[i]]
-        print(f"emg_sum: {emg_sum}")
+        # print(f"emg_sum: {emg_sum}")
         for i in range(NUM_FINGERS):
             # self._emg_data[i] = (self._emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
             self._emg_data[i] = emg_sum[i] / len(v)
