@@ -8,7 +8,7 @@ from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from serial.tools import list_ports
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from common.roh_registers_v1 import *
 
@@ -88,7 +88,6 @@ class Application:
     async def main(self):
         prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
-        prev_dir = [0 for _ in range(NUM_FINGERS)]
 
         if self.find_comport("STM Serial") or self.find_comport("串行设备"):
             from pos_input_usb_glove import PosInputUsbGlove as PosInput
@@ -110,36 +109,17 @@ class Application:
         while not self.terminated:
             finger_data = await pos_input.get_position()
 
-            dir = [0 for _ in range(NUM_FINGERS)]
             pos = [0 for _ in range(NUM_FINGERS)]
             target_changed = False
 
             for i in range(NUM_FINGERS):
-                if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+                if finger_data[i] != prev_finger_data[i]:
                     prev_finger_data[i] = finger_data[i]
-                    dir[i] = 1
-                elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
-                    prev_finger_data[i] = finger_data[i]
-                    dir[i] = -1
-
-                # 只在方向发生变化时发送目标位置/角度
-                if dir[i] != prev_dir[i]:
-                    prev_dir[i] = dir[i]
                     target_changed = True
-
-                if dir[i] == -1:
-                    pos[i] = 0
-                elif dir[i] == 0:
-                    pos[i] = finger_data[i]
-                else:
-                    pos[i] = 65535
-
-            # print(f"target_changed: {target_changed}, dir: {dir}, pos: {pos}")
-
-            # pos = finger_data
-            # target_changed = True
+                    break
 
             if target_changed:
+                pos = finger_data
                 # Read current position
                 curr_pos = [0 for _ in range(NUM_FINGERS)]
                 resp = self.read_registers(client, ROH_FINGER_POS0, NUM_FINGERS)
