@@ -32,14 +32,19 @@ class PosInputBleGlove:
         self._emg_data = [0 for _ in range(NUM_FINGERS)]
         self._emg_min = [65535 for _ in range(NUM_FINGERS)]
         self._emg_max = [0 for _ in range(NUM_FINGERS)]
+        self._pre_finger_data = [0 for _ in range(NUM_FINGERS)]
         self._q = None
 
     def clamp(self, n, smallest, largest):
         return max(smallest, min(n, largest))
 
     def interpolate(self, n, from_min, from_max, to_min, to_max):
+
         # 将n从from_min到from_max的范围映射到to_min到to_max的范围
-        return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        # return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        tmp = to_max-(n - from_min) / (from_max - from_min)*(to_max - to_min)
+        return tmp *(1-(n-from_min)/(from_max-from_min))
+        
 
     async def start(self) -> bool:
         # GForce.connect() may get exception, but we just ignore for gloves
@@ -64,7 +69,7 @@ class PosInputBleGlove:
         await self._gforce_device.set_subscription(gforce.DataSubscription.EMG_RAW)
         self._q = await self._gforce_device.start_streaming()
 
-        print("校正模式，请执行握拳和张开动作若干次\nCalibrating mode, please perform a fist and open action several times")
+        print("校正模式，请常速握拳和张开及旋转大拇指动作若干次\nCalibrating mode, please perform a fist and open action several times")
 
         for _ in range(256):
             v = await self._q.get()
@@ -106,13 +111,20 @@ class PosInputBleGlove:
         for j in range(len(v)):
             for i in range(NUM_FINGERS):
                 emg_sum[i] += v[j][INDEX_CHANNELS[i]]
-
+        # print(f"emg_sum: {emg_sum}")
         for i in range(NUM_FINGERS):
-            self._emg_data[i] = (self._emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
-
-            finger_data[i] = round(self.interpolate(self._emg_data[i], self._emg_min[i], self._emg_max[i], 65535, 0))
+            # self._emg_data[i] = (self._emg_data[i] * 3 + emg_sum[i] / len(v)) / 4
+            self._emg_data[i] = emg_sum[i] / len(v)
+            # if(self._emg_data[i] < self._emg_min[i] or self._emg_data[i] > self._emg_max[i]):
+            #     self._emg_data[i] = self._pre_finger_data[i]
+            if(self._emg_data[i] < self._emg_min[i]):
+                self._emg_data[i] = self._emg_min[i]
+            if(self._emg_data[i] > self._emg_max[i]):
+                self._emg_data[i] = self._emg_max[i]
+            finger_data[i] = round(self.interpolate(self._emg_data[i], self._emg_min[i], self._emg_max[i], 0, 65535))
             finger_data[i] = self.clamp(finger_data[i], 0, 65535)
 
+        self._pre_finger_data = finger_data
         return finger_data
 
     async def stop(self):

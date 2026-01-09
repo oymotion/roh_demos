@@ -63,7 +63,9 @@ class PosInputUsbGlove:
 
     def interpolate(self, n, from_min, from_max, to_min, to_max):
         # 将n从from_min到from_max的范围映射到to_min到to_max的范围
-        return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        # return (n - from_min) / (from_max - from_min) * (to_max - to_min) + to_min
+        tmp = to_max-(n - from_min) / (from_max - from_min)*(to_max - to_min)
+        return tmp *(1-(n-from_min)/(from_max-from_min))
 
     def calc_lrc(self, lrcBytes, lrcByteCount):
         """
@@ -220,7 +222,7 @@ class PosInputUsbGlove:
         else:
             print("使用通用手套\nUse general glove")
 
-        print("校正模式，请执行握拳和张开动作若干次\nCalibrating mode, please perform a fist and open action several times")
+        print("校正模式，请常速握拳和张开及旋转大拇指动作若干次\nCalibrating mode, please perform a fist and open action several times")
 
         for _ in range(512):
             self.get_data(self._glove_raw_data)
@@ -271,9 +273,16 @@ class PosInputUsbGlove:
                     glove_data_sum[i] += glove_data[i]
 
             for i in range(NUM_FINGERS):
-                glove_data[i] = (glove_data[i] * 3 + glove_data_sum[i] / len(glove_data)) / 4  # 平滑
+                # glove_data[i] = (glove_data[i] * 3 + glove_data_sum[i] / len(glove_data)) / 4  # 平滑
+                glove_data[i] = glove_data_sum[i] / len(glove_data)  # 平滑
+
+                if(glove_data[i] < self._cali_min[i]):
+                    glove_data[i] = self._cali_min[i]
+                if(glove_data[i] > self._cali_max[i]):
+                    glove_data[i] = self._cali_max[i]
+                
                 # 映射到灵巧手位置
-                finger_data[i] = round(self.interpolate(glove_data[i], self._cali_min[i], self._cali_max[i], 65535, 0))
+                finger_data[i] = round(self.interpolate(glove_data[i], self._cali_min[i], self._cali_max[i], 0, 65535))
                 finger_data[i] = self.clamp(finger_data[i], 0, 65535)  # 限制在最大最小范围内
 
         return finger_data

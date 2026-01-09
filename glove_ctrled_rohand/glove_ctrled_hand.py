@@ -114,32 +114,45 @@ class Application:
             pos = [0 for _ in range(NUM_FINGERS)]
             target_changed = False
 
+            # for i in range(NUM_FINGERS):
+            #     if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         dir[i] = 1
+            #     elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         dir[i] = -1
+
+            #     # 只在方向发生变化时发送目标位置/角度
+            #     if dir[i] != prev_dir[i]:
+            #         prev_dir[i] = dir[i]
+            #         target_changed = True
+
+            #     if dir[i] == -1:
+            #         pos[i] = 0
+            #     elif dir[i] == 0:
+            #         pos[i] = finger_data[i]
+            #     else:
+            #         pos[i] = 65535
+            # for i in range(NUM_FINGERS):
+            #     if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         target_changed = True
+            #     elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         target_changed = True
             for i in range(NUM_FINGERS):
-                if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+                if finger_data[i] != prev_finger_data[i]:
                     prev_finger_data[i] = finger_data[i]
-                    dir[i] = 1
-                elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
-                    prev_finger_data[i] = finger_data[i]
-                    dir[i] = -1
-
-                # 只在方向发生变化时发送目标位置/角度
-                if dir[i] != prev_dir[i]:
-                    prev_dir[i] = dir[i]
                     target_changed = True
-
-                if dir[i] == -1:
-                    pos[i] = 0
-                elif dir[i] == 0:
-                    pos[i] = finger_data[i]
-                else:
-                    pos[i] = 65535
-
+                    break
+            # print(f"finger_data: {finger_data}") 
             # print(f"target_changed: {target_changed}, dir: {dir}, pos: {pos}")
 
             # pos = finger_data
             # target_changed = True
 
             if target_changed:
+                pos = finger_data
                 # Read current position
                 curr_pos = [0 for _ in range(NUM_FINGERS)]
                 resp = self.read_registers(client, ROH_FINGER_POS0, NUM_FINGERS)
