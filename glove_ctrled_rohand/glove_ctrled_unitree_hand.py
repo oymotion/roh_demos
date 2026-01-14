@@ -135,28 +135,34 @@ class Application:
             target_changed = False
 
             for i in range(NUM_FINGERS):
-                if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+                if finger_data[i] != prev_finger_data[i]:
                     prev_finger_data[i] = finger_data[i]
-                    dir[i] = 1
-                elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
-                    prev_finger_data[i] = finger_data[i]
-                    dir[i] = -1
-
-                # 只在方向发生变化时发送目标位置/角度
-                if dir[i] != prev_dir[i]:
-                    prev_dir[i] = dir[i]
                     target_changed = True
+                    break
 
-                if dir[i] == -1:
-                    pos[i] = 0
-                elif dir[i] == 0:
-                    pos[i] = finger_data[i]
-                else:
-                    pos[i] = 65535
+            # for i in range(NUM_FINGERS):
+            #     if finger_data[i] > prev_finger_data[i] + TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         dir[i] = 1
+            #     elif finger_data[i] < prev_finger_data[i] - TOLERANCE:
+            #         prev_finger_data[i] = finger_data[i]
+            #         dir[i] = -1
+
+            #     # 只在方向发生变化时发送目标位置/角度
+            #     if dir[i] != prev_dir[i]:
+            #         prev_dir[i] = dir[i]
+            #         target_changed = True
+
+            #     if dir[i] == -1:
+            #         pos[i] = 0
+            #     elif dir[i] == 0:
+            #         pos[i] = finger_data[i]
+            #     else:
+            #         pos[i] = 65535
 
             # print(f"target_changed: {target_changed}, dir: {dir}, pos: {pos}")
 
-            # pos = finger_data
+            pos = finger_data
             # target_changed = True
 
             if target_changed:
@@ -165,7 +171,8 @@ class Application:
                 else:
                     publisher = Global.r_publisher
                 for i in range(NUM_FINGERS):
-                    msg = ROHandCtrl(i, 65535, 255, ROHandCtrlMode.HAND_MODE_POSITION)
+                    msg = ROHandCtrl(i, pos[i], 180, ROHandCtrlMode.HAND_MODE_POSITION)
+                    print(f"publish {msg}")
                     publisher.Write(msg)
                 # Read current position
                 # curr_pos = [0 for _ in range(NUM_FINGERS)]

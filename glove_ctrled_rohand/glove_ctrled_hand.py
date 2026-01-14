@@ -15,10 +15,10 @@ from common.roh_registers_v1 import *
 
 # Choose input device. ONLY ONE of the following should be uncommented.
 # Uncomment following line to use BLE Glove
-from pos_input_ble_glove import PosInputBleGlove as PosInput
+# from pos_input_ble_glove import PosInputBleGlove as PosInput
 # Or
 # Uncomment following line to use USB Glove
-# from pos_input_usb_glove import PosInputUsbGlove as PosInput
+from pos_input_usb_glove import PosInputUsbGlove as PosInput
 
 
 # ROHand configuration
