@@ -89,7 +89,7 @@ class Application:
         prev_finger_data = [65535 for _ in range(NUM_FINGERS)]
         finger_data = [0 for _ in range(NUM_FINGERS)]
 
-        if self.find_comport("STM Serial") or self.find_comport("串行设备"):
+        if self.find_comport("STM Serial") or self.find_comport("串行设备") or self.find_comport("USB"):
             from pos_input_usb_glove import PosInputUsbGlove as PosInput
         else:
             from pos_input_ble_glove import PosInputBleGlove as PosInput

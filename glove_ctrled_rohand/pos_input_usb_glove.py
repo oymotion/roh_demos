@@ -36,7 +36,7 @@ class PosInputUsbGlove:
         """
         # serial init
         self.serial_port = serial.Serial(
-            port=self.find_comport("串行设备") or self.find_comport("STM"),
+            port=self.find_comport("串行设备") or self.find_comport("STM") or self.find_comport("USB"),
             baudrate=115200,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
